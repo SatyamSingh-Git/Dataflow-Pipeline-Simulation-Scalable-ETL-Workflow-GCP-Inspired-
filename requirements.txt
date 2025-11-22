@@ -1,0 +1,16 @@
+# Apache Beam and dependencies
+apache-beam[gcp]==2.52.0
+
+# Data processing
+pandas==2.1.4
+numpy==1.26.2
+
+# Configuration
+pyyaml==6.0.1
+
+# Testing
+pytest==7.4.3
+pytest-cov==4.1.0
+
+# Logging
+python-json-logger==2.0.7
