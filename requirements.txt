@@ -1,9 +1,9 @@
 # Apache Beam and dependencies
-apache-beam[gcp]==2.52.0
+apache-beam[gcp]==2.60.0
 
 # Data processing
 pandas==2.1.4
-numpy==1.26.2
+numpy==1.26.4
 
 # Configuration
 pyyaml==6.0.1

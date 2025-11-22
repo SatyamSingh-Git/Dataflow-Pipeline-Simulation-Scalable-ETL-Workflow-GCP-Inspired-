@@ -8,7 +8,7 @@ from .transformations import (
     EnrichTransaction,
     AggregateByUserCategory,
     FormatForBigQuery,
-    WriteToBigQuery,
+    CollectRecords,
     ExtractUserCategoryKey
 )
 from .etl_pipeline import DataflowETLPipeline
@@ -19,7 +19,7 @@ __all__ = [
     'EnrichTransaction',
     'AggregateByUserCategory',
     'FormatForBigQuery',
-    'WriteToBigQuery',
+    'CollectRecords',
     'ExtractUserCategoryKey',
     'DataflowETLPipeline'
 ]

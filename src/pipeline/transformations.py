@@ -141,32 +141,11 @@ class FormatForBigQuery(beam.DoFn):
             logger.error(f"Error formatting for BigQuery: {e}")
 
 
-class WriteToBigQuery(beam.DoFn):
-    """Write records to BigQuery simulator"""
-    
-    def __init__(self, bq_simulator, table_name):
-        self.bq_simulator = bq_simulator
-        self.table_name = table_name
-        self.batch = []
-        self.batch_size = 100
+class CollectRecords(beam.DoFn):
+    """Collect records for BigQuery insertion"""
     
     def process(self, element):
-        try:
-            self.batch.append(element)
-            if len(self.batch) >= self.batch_size:
-                self.flush()
-            yield element
-        except Exception as e:
-            logger.error(f"Error writing to BigQuery: {e}")
-    
-    def flush(self):
-        if self.batch:
-            count = self.bq_simulator.insert_rows(self.table_name, self.batch)
-            logger.info(f"Inserted {count} rows into {self.table_name}")
-            self.batch = []
-    
-    def finish_bundle(self):
-        self.flush()
+        yield element
 
 
 class ExtractUserCategoryKey(beam.DoFn):

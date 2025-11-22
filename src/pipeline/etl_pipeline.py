@@ -15,7 +15,7 @@ from .transformations import (
     EnrichTransaction,
     AggregateByUserCategory,
     FormatForBigQuery,
-    WriteToBigQuery,
+    CollectRecords,
     ExtractUserCategoryKey
 )
 
@@ -38,96 +38,123 @@ class DataflowETLPipeline:
         options.view_as(StandardOptions).runner = self.pipeline_config.get('runner', 'DirectRunner')
         return options
     
+    def _apply_transformations(self, data, parser, filter_fn, enricher=None):
+        """Apply transformation functions to data"""
+        results = []
+        
+        for item in data:
+            # Parse
+            parsed_items = list(parser.process(item))
+            for parsed in parsed_items:
+                # Filter
+                filtered_items = list(filter_fn.process(parsed))
+                for filtered in filtered_items:
+                    # Enrich if provided
+                    if enricher:
+                        enriched_items = list(enricher.process(filtered))
+                        results.extend(enriched_items)
+                    else:
+                        results.append(filtered)
+        
+        return results
+    
     def run_raw_ingestion_pipeline(self, input_data, bq_simulator):
         """
         Pipeline to ingest raw transaction data
-        
-        Steps:
-        1. Read from Pub/Sub simulation
-        2. Parse JSON messages
-        3. Filter valid transactions
-        4. Write to raw_transactions table
         """
-        options = self.create_pipeline_options()
+        logger.info("Running raw ingestion pipeline...")
         
-        with beam.Pipeline(options=options) as pipeline:
-            (
-                pipeline
-                | 'Create Input' >> beam.Create(input_data)
-                | 'Parse Messages' >> beam.ParDo(ParseJsonMessage())
-                | 'Filter Valid' >> beam.ParDo(FilterValidTransactions())
-                | 'Format for BQ' >> beam.ParDo(FormatForBigQuery())
-                | 'Write Raw Data' >> beam.ParDo(
-                    WriteToBigQuery(
-                        bq_simulator,
-                        self.bq_config['tables']['raw']
-                    )
-                )
-            )
+        parser = ParseJsonMessage()
+        filter_fn = FilterValidTransactions()
+        formatter = FormatForBigQuery()
+        
+        results = self._apply_transformations(input_data, parser, filter_fn)
+        
+        # Format for BigQuery
+        formatted_results = []
+        for item in results:
+            formatted_items = list(formatter.process(item))
+            formatted_results.extend(formatted_items)
+        
+        # Insert into BigQuery
+        if formatted_results:
+            count = bq_simulator.insert_rows(self.bq_config['tables']['raw'], formatted_results)
+            logger.info(f"Inserted {count} rows into {self.bq_config['tables']['raw']}")
         
         logger.info("Raw ingestion pipeline completed")
+        return formatted_results
     
     def run_transformation_pipeline(self, input_data, bq_simulator):
         """
         Pipeline to transform and enrich transaction data
-        
-        Steps:
-        1. Read from raw transactions
-        2. Enrich with categories and flags
-        3. Write to processed_transactions table
         """
-        options = self.create_pipeline_options()
+        logger.info("Running transformation pipeline...")
         
-        with beam.Pipeline(options=options) as pipeline:
-            (
-                pipeline
-                | 'Create Input' >> beam.Create(input_data)
-                | 'Parse Messages' >> beam.ParDo(ParseJsonMessage())
-                | 'Filter Valid' >> beam.ParDo(FilterValidTransactions())
-                | 'Enrich Data' >> beam.ParDo(EnrichTransaction())
-                | 'Format for BQ' >> beam.ParDo(FormatForBigQuery())
-                | 'Write Processed Data' >> beam.ParDo(
-                    WriteToBigQuery(
-                        bq_simulator,
-                        self.bq_config['tables']['processed']
-                    )
-                )
-            )
+        parser = ParseJsonMessage()
+        filter_fn = FilterValidTransactions()
+        enricher = EnrichTransaction()
+        formatter = FormatForBigQuery()
+        
+        results = self._apply_transformations(input_data, parser, filter_fn, enricher)
+        
+        # Format for BigQuery
+        formatted_results = []
+        for item in results:
+            formatted_items = list(formatter.process(item))
+            formatted_results.extend(formatted_items)
+        
+        # Insert into BigQuery
+        if formatted_results:
+            count = bq_simulator.insert_rows(self.bq_config['tables']['processed'], formatted_results)
+            logger.info(f"Inserted {count} rows into {self.bq_config['tables']['processed']}")
         
         logger.info("Transformation pipeline completed")
+        return formatted_results
     
     def run_aggregation_pipeline(self, input_data, bq_simulator):
         """
         Pipeline to aggregate transaction data
-        
-        Steps:
-        1. Read from processed transactions
-        2. Group by user and category
-        3. Aggregate metrics
-        4. Write to transaction_summary table
         """
-        options = self.create_pipeline_options()
+        logger.info("Running aggregation pipeline...")
         
-        with beam.Pipeline(options=options) as pipeline:
-            (
-                pipeline
-                | 'Create Input' >> beam.Create(input_data)
-                | 'Parse Messages' >> beam.ParDo(ParseJsonMessage())
-                | 'Filter Valid' >> beam.ParDo(FilterValidTransactions())
-                | 'Enrich Data' >> beam.ParDo(EnrichTransaction())
-                | 'Extract Key' >> beam.ParDo(ExtractUserCategoryKey())
-                | 'Group By Key' >> beam.GroupByKey()
-                | 'Aggregate' >> beam.ParDo(AggregateByUserCategory())
-                | 'Format for BQ' >> beam.ParDo(FormatForBigQuery())
-                | 'Write Summary' >> beam.ParDo(
-                    WriteToBigQuery(
-                        bq_simulator,
-                        self.bq_config['tables']['aggregated']
-                    )
-                )
-            )
+        parser = ParseJsonMessage()
+        filter_fn = FilterValidTransactions()
+        enricher = EnrichTransaction()
+        key_extractor = ExtractUserCategoryKey()
+        aggregator = AggregateByUserCategory()
+        formatter = FormatForBigQuery()
+        
+        # Process and enrich data
+        enriched = self._apply_transformations(input_data, parser, filter_fn, enricher)
+        
+        # Extract keys and group
+        keyed_data = {}
+        for item in enriched:
+            key_items = list(key_extractor.process(item))
+            for key, value in key_items:
+                if key not in keyed_data:
+                    keyed_data[key] = []
+                keyed_data[key].append(value)
+        
+        # Aggregate
+        aggregated_results = []
+        for key, items in keyed_data.items():
+            agg_items = list(aggregator.process((key, items)))
+            aggregated_results.extend(agg_items)
+        
+        # Format for BigQuery
+        formatted_results = []
+        for item in aggregated_results:
+            formatted_items = list(formatter.process(item))
+            formatted_results.extend(formatted_items)
+        
+        # Insert into BigQuery
+        if formatted_results:
+            count = bq_simulator.insert_rows(self.bq_config['tables']['aggregated'], formatted_results)
+            logger.info(f"Inserted {count} rows into {self.bq_config['tables']['aggregated']}")
         
         logger.info("Aggregation pipeline completed")
+        return formatted_results
     
     def run_complete_pipeline(self, input_data, bq_simulator):
         """
