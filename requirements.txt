@@ -1,4 +1,5 @@
 # Apache Beam and dependencies
+# Note: For production use, consider using pip-tools or poetry for dependency locking
 apache-beam[gcp]==2.60.0
 
 # Data processing

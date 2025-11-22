@@ -62,14 +62,18 @@ class EnrichTransaction(beam.DoFn):
         'lyft': 'Transportation',
     }
     
-    # Currency conversion rates (simplified)
-    CURRENCY_RATES = {
+    # Currency conversion rates (can be overridden from config)
+    # Note: In production, these should be fetched from an external API or config
+    DEFAULT_CURRENCY_RATES = {
         'USD': 1.0,
         'EUR': 1.08,
         'GBP': 1.27,
         'JPY': 0.0067,
         'CAD': 0.74,
     }
+    
+    def __init__(self, currency_rates=None):
+        self.currency_rates = currency_rates or self.DEFAULT_CURRENCY_RATES
     
     def process(self, element):
         try:
@@ -91,7 +95,7 @@ class EnrichTransaction(beam.DoFn):
             # Convert to USD for normalization
             currency = element.get('currency', 'USD')
             amount = element.get('amount', 0)
-            rate = self.CURRENCY_RATES.get(currency, 1.0)
+            rate = self.currency_rates.get(currency, 1.0)
             element['amount_usd'] = round(amount * rate, 2)
             
             yield element

@@ -44,7 +44,7 @@ FROM analytics.processed_transactions
 GROUP BY transaction_date
 ORDER BY transaction_date DESC;
 
--- Query 5: User spending by category over time
+-- Query 5: User spending by category over time (example with user_0001, replace with actual user_id)
 SELECT 
     user_id,
     category,
@@ -52,7 +52,7 @@ SELECT
     total_amount,
     transaction_count
 FROM analytics.transaction_summary
-WHERE user_id = 'user_0001'
+WHERE user_id = 'user_0001'  -- Replace with desired user_id parameter
 ORDER BY summary_date DESC, total_amount DESC;
 
 -- Query 6: Merchant performance
