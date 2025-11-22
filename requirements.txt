@@ -1,0 +1,17 @@
+# Apache Beam and dependencies
+# Note: For production use, consider using pip-tools or poetry for dependency locking
+apache-beam[gcp]==2.60.0
+
+# Data processing
+pandas==2.1.4
+numpy==1.26.4
+
+# Configuration
+pyyaml==6.0.1
+
+# Testing
+pytest==7.4.3
+pytest-cov==4.1.0
+
+# Logging
+python-json-logger==2.0.7

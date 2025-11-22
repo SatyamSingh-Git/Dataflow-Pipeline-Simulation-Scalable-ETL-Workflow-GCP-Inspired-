@@ -1,0 +1,38 @@
+# Configuration for Dataflow Pipeline Simulation
+
+pipeline:
+  name: "etl-pipeline-simulation"
+  runner: "DirectRunner"  # Use DirectRunner for local execution
+  
+pubsub:
+  topic: "transactions-topic"
+  subscription: "transactions-subscription"
+  max_messages: 1000
+  
+bigquery:
+  dataset: "analytics"
+  tables:
+    raw: "raw_transactions"
+    processed: "processed_transactions"
+    aggregated: "transaction_summary"
+  
+data:
+  input_file: "data/input/transactions.json"
+  output_dir: "data/output"
+  sample_size: 100
+  
+transformations:
+  filters:
+    - "amount > 0"
+  enrichments:
+    - "add_timestamp"
+    - "categorize_transaction"
+  aggregations:
+    - "sum_by_category"
+    - "count_by_user"
+  currency_rates:
+    USD: 1.0
+    EUR: 1.08
+    GBP: 1.27
+    JPY: 0.0067
+    CAD: 0.74
